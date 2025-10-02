@@ -1,0 +1,18 @@
+{
+  "columns": [
+    {
+      "key": "roll",
+      "label": "Roll"
+    },
+    {
+      "key": "name",
+      "label": "Item"
+    },
+    {
+      "key": "weight",
+      "label": "Weight"
+    }
+  ],
+  "items": [],
+  "die": 20
+}

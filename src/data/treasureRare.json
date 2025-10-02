@@ -1,0 +1,12 @@
+{
+  "die": 4,
+  "columns": [
+    { "key": "roll", "label": "Roll" },
+    { "key": "name", "label": "Item" },
+    { "key": "weight", "label": "Weight" }
+  ],
+  "items": [
+    { "roll": "1-2", "name": "Sword", "weight": 1 },
+    { "roll": "3-4", "name": "Axe", "weight": 2 }
+  ]
+}
