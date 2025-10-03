@@ -18,12 +18,21 @@ function CreateListView({
 }: CreateListViewProps) {
   const [listName, setListName] = useState("");
 
+  // Allowed filename characters: letters, numbers, dash, underscore
+  const validNameRegex = /^[a-zA-Z0-9_-]+$/;
+
   const handleCreate = () => {
     const key = listName.trim();
 
     // basic validation
     if (!key) {
       alert("List name cannot be empty");
+      return;
+    }
+    if (!validNameRegex.test(key)) {
+      alert(
+        'Invalid list name. Use only letters, numbers, dash "-" or underscore "_".'
+      );
       return;
     }
     if (dataSets[key]) {
@@ -48,8 +57,17 @@ function CreateListView({
       [key]: newData,
     }));
 
+    // trigger download of JSON file
+    const blob = new Blob([JSON.stringify(newData, null, 2)], {
+      type: "application/json",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${key}.json`;
+    link.click();
+
     alert(
-      `New list "${key}" created! (Remember: the JSON will be downloaded, place it in /data folder if you want persistence)`
+      `New list "${key}" created! JSON file has been downloaded. Place it in the /data folder for persistence.`
     );
 
     // clear field
@@ -69,13 +87,16 @@ function CreateListView({
       </div>
       <div className="card-body">
         <div className="mb-3">
-          <label className="form-label">List name (used as file name)</label>
+          <label className="form-label">List name</label>
           <input
             type="text"
             className="form-control"
             value={listName}
             onChange={(e) => setListName(e.target.value)}
           />
+          <div className="form-text text-danger" style={{ fontSize: "0.85rem" }}>
+            Only letters, numbers, dash "-" or underscore "_" allowed.
+          </div>
         </div>
         <button className="btn btn-success" onClick={handleCreate}>
           Create

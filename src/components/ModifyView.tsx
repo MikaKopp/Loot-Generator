@@ -5,7 +5,7 @@ interface ModifyViewProps {
   onBack: () => void;
 }
 
-function ModifyView({ existingKeys, onBack }: ModifyViewProps) {
+function ModifyView({ /* existingKeys, */ onBack }: ModifyViewProps) {
   return (
     <div className="container mt-4">
       <h2>Modify Lists</h2>
