@@ -1,0 +1,64 @@
+{
+  "die": 100,
+  "columns": [
+    {
+      "key": "roll",
+      "label": "Roll"
+    },
+    {
+      "key": "name",
+      "label": "Item"
+    },
+    {
+      "key": "weight",
+      "label": "Weight"
+    }
+  ],
+  "items": [
+    {
+      "roll": "1-50",
+      "name": "Potion of healing",
+      "weight": 50
+    },
+    {
+      "roll": "51-60",
+      "name": "Spell scroll (cantrip)",
+      "weight": 10
+    },
+    {
+      "roll": "61-70",
+      "name": "Potion of climbing",
+      "weight": 10
+    },
+    {
+      "roll": "101-200",
+      "name": "Ring of Three Wishes",
+      "weight": 100
+    },
+    {
+      "roll": "71-90",
+      "name": "Spell scroll (1st level)",
+      "weight": 20
+    },
+    {
+      "roll": "91-94",
+      "name": "Spell scroll (2st level)",
+      "weight": 4
+    },
+    {
+      "roll": "95-98",
+      "name": "Potion of greater healing",
+      "weight": 4
+    },
+    {
+      "roll": "99",
+      "name": "Bag of holding",
+      "weight": 1
+    },
+    {
+      "roll": "100",
+      "name": "Driftglobe",
+      "weight": 1
+    }
+  ]
+}
