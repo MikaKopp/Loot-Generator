@@ -1,16 +1,16 @@
-import /* React, */ { useState } from "react";
+import { useState } from "react";
 import NavBar from "./components/NavBar";
 import TreasureList from "./components/TreasureList";
 import ModifyLists from "./components/ModifyLists";
+import ManageItems from "./components/ManageItems";
 import { dataSets as initialData } from "./data/DataLoader";
 
 function App() {
-  const [view, setView] = useState<"roll" | "modify">("roll");
-
+  const [view, setView] = useState<"roll" | "modify" | "items">("roll");
   const [dataSets, setDataSets] = useState(initialData);
 
   const handleNav = (v: string) => {
-    if (v === "roll" || v === "modify") {
+    if (v === "roll" || v === "modify" || v === "items") {
       setView(v);
     }
   };
@@ -27,6 +27,7 @@ function App() {
             {view === "modify" && (
               <ModifyLists dataSets={dataSets} setDataSets={setDataSets} />
             )}
+            {view === "items" && <ManageItems />}
           </div>
         </div>
       </div>

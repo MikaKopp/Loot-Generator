@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { TreasureData, TreasureItem } from "./TreasureList";
+import ConfirmationModal from "./ConfirmationModal";
 
 interface ModifyEditorProps {
   dataSets: Record<string, TreasureData>;
@@ -69,6 +70,8 @@ export default function ModifyEditor({
   const [newRow, setNewRow] = useState<TreasureItem>({ roll: "", name: "", weight: 1 });
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [showConfirmBack, setShowConfirmBack] = useState(false);
+  const [showConfirmSave, setShowConfirmSave] = useState(false);
+  const [preparedSave, setPreparedSave] = useState<TreasureData | null>(null);
   const [saveMessage, setSaveMessage] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [editType, setEditType] = useState<"roll" | "weight">("roll");
@@ -93,7 +96,7 @@ export default function ModifyEditor({
     return items.map((i, idx) => ({ ...i, roll: newRolls[idx] }));
   };
 
-  // add new row
+  // --- Add new row ---
   const handleAddRow = () => {
     if (!selectedSet || !currentData) return;
     if (!newRow.name || newRow.weight <= 0) return;
@@ -107,7 +110,6 @@ export default function ModifyEditor({
     setUnsavedChanges(true);
   };
 
-  // new row linking logic
   const handleNewRowRollChange = (val: string) => {
     const clean = sanitizeRollInput(val);
     setNewRow((prev) => ({ ...prev, roll: clean }));
@@ -131,7 +133,7 @@ export default function ModifyEditor({
     });
   };
 
-  // --- editing existing rows ---
+  // --- Editing existing rows ---
   const handleEditRow = (idx: number, key: keyof TreasureItem, value: string | number, onBlur?: boolean) => {
     if (!currentData) return;
     let updatedItems = [...currentData.items];
@@ -146,7 +148,6 @@ export default function ModifyEditor({
         if (parsed) {
           const newWeight = parsed.max - parsed.min + 1;
           updatedItems[idx].weight = newWeight;
-          // reflow following ranges
           const startAfter = parsed.max + 1;
           for (let i = idx + 1; i < updatedItems.length; i++) {
             const prevMax = parseRollRange(updatedItems[i - 1].roll)?.max ?? startAfter;
@@ -182,16 +183,17 @@ export default function ModifyEditor({
   };
 
   const handleDeleteRow = (idx: number) => {
-  if (!currentData) return;
-  const updated = currentData.items.filter((_, i) => i !== idx);
-  const reflowed = reflowRolls(updated);
-  setDataSets((prev) => ({
-    ...prev,
-    [selectedSet]: { ...currentData, items: reflowed },
-  }));
-  setUnsavedChanges(true);
-};
+    if (!currentData) return;
+    const updated = currentData.items.filter((_, i) => i !== idx);
+    const reflowed = reflowRolls(updated);
+    setDataSets((prev) => ({
+      ...prev,
+      [selectedSet]: { ...currentData, items: reflowed },
+    }));
+    setUnsavedChanges(true);
+  };
 
+  // --- Save confirmation ---
   const handleSave = () => {
     if (!unsavedChanges) {
       setSaveMessage("No changes detected.");
@@ -199,16 +201,30 @@ export default function ModifyEditor({
       return;
     }
     if (!selectedSet || !currentData) return;
-    const blob = new Blob([JSON.stringify(currentData, null, 2)], { type: "application/json" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `${selectedSet}.json`;
-    link.click();
+
+    setPreparedSave(currentData);
+    setShowConfirmSave(true);
+  };
+
+  const finalizeSave = (shouldDownload: boolean) => {
+    if (!preparedSave || !selectedSet) return;
+
+    if (shouldDownload) {
+      const blob = new Blob([JSON.stringify(preparedSave, null, 2)], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${selectedSet}.json`;
+      link.click();
+    }
+
     setSaveMessage("Changes have been saved. (Place JSON in /data for persistence)");
     setUnsavedChanges(false);
+    setShowConfirmSave(false);
+    setPreparedSave(null);
     setTimeout(() => setSaveMessage(""), 12000);
   };
 
+  // --- Back confirmation ---
   const handleBack = () => (unsavedChanges ? setShowConfirmBack(true) : onBack());
   const confirmBackYes = () => {
     setShowConfirmBack(false);
@@ -371,18 +387,29 @@ export default function ModifyEditor({
 
         {saveMessage && <p className="mt-2 text-success fw-bold">{saveMessage}</p>}
 
+        {/* Confirmation Modals */}
         {showConfirmBack && (
-          <div className="alert alert-warning mt-3">
-            <p>There are unsaved changes. Abandon and go back?</p>
-            <div className="d-flex gap-2">
-              <button className="btn btn-danger" onClick={confirmBackYes}>
-                Yes, abandon
-              </button>
-              <button className="btn btn-secondary" onClick={confirmBackNo}>
-                No, stay
-              </button>
-            </div>
-          </div>
+          <ConfirmationModal
+            title="Unsaved Changes"
+            message="You have unsaved changes. Abandon and go back?"
+            variant="warning"
+            onPrimary={confirmBackYes}
+            onCancel={confirmBackNo}
+            primaryLabel="Yes, abandon"
+            cancelLabel="Stay here"
+          />
+        )}
+
+        {showConfirmSave && preparedSave && (
+          <ConfirmationModal
+            title="Save Changes?"
+            message="Do you want to download the updated JSON for this list?"
+            variant="info"
+            onPrimary={() => finalizeSave(true)}
+            onCancel={() => finalizeSave(false)}
+            primaryLabel="Yes, download"
+            cancelLabel="No"
+          />
         )}
       </div>
     </div>
