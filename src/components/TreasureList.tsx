@@ -4,6 +4,8 @@ export interface TreasureItem {
   roll: string;
   name: string;
   weight: number;
+  // optional place for extended info
+  description?: string;
 }
 
 export interface ColumnConfig {
@@ -27,6 +29,7 @@ function TreasureList({ heading, dataSets }: TreasureListProps) {
   const [selectedSet, setSelectedSet] = useState<string>(datasetKeys[0] ?? "");
   const [rolledIndex, setRolledIndex] = useState<number | null>(null);
   const [lastRoll, setLastRoll] = useState<number | null>(null);
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   const currentData = dataSets[selectedSet] ?? {
     die: 6,
@@ -46,11 +49,15 @@ function TreasureList({ heading, dataSets }: TreasureListProps) {
   const handleRoll = () => {
     const value = Math.floor(Math.random() * currentData.die) + 1;
     setLastRoll(value);
-
     const index = currentData.items.findIndex((item) =>
       rollMatches(item.roll, value)
     );
     setRolledIndex(index);
+    setExpandedIndex(index); // auto-expand rolled item
+  };
+
+  const handleRowClick = (index: number) => {
+    setExpandedIndex((prev) => (prev === index ? null : index));
   };
 
   return (
@@ -72,6 +79,7 @@ function TreasureList({ heading, dataSets }: TreasureListProps) {
               setSelectedSet(e.target.value);
               setRolledIndex(null);
               setLastRoll(null);
+              setExpandedIndex(null);
             }}
           >
             {datasetKeys.map((k) => (
@@ -83,7 +91,7 @@ function TreasureList({ heading, dataSets }: TreasureListProps) {
         </div>
 
         {/* Table */}
-        <table className="table table-dark table-striped">
+        <table className="table table-dark table-striped align-middle">
           <thead>
             <tr>
               {currentData.columns.map((col) => (
@@ -93,14 +101,35 @@ function TreasureList({ heading, dataSets }: TreasureListProps) {
           </thead>
           <tbody>
             {currentData.items.map((item, index) => (
-              <tr
-                key={index}
-                className={rolledIndex === index ? "table-success" : ""}
-              >
-                {currentData.columns.map((col) => (
-                  <td key={String(col.key)}>{item[col.key]}</td>
-                ))}
-              </tr>
+              <>
+                <tr
+                  key={index}
+                  className={`cursor-pointer ${
+                    rolledIndex === index ? "table-success" : ""
+                  }`}
+                  onClick={() => handleRowClick(index)}
+                >
+                  {currentData.columns.map((col) => (
+                    <td key={String(col.key)}>{item[col.key]}</td>
+                  ))}
+                </tr>
+
+                {/* Expanded info row */}
+                {expandedIndex === index && (
+                  <tr>
+                    <td colSpan={currentData.columns.length}>
+                      <div className="p-3 bg-secondary rounded">
+                        <strong>Additional Info:</strong>
+                        <p className="mb-0">
+                          {item.description
+                            ? item.description
+                            : "No additional information available for this item."}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </>
             ))}
           </tbody>
         </table>

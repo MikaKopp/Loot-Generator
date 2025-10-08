@@ -1,5 +1,3 @@
-//import React from "react";
-
 interface NavBarProps {
   active: string;
   onNavigate: (view: string) => void;
@@ -31,12 +29,21 @@ export default function NavBar({ active, onNavigate }: NavBarProps) {
           </button>
 
           <button
-            className={`btn ${
+            className={`btn me-2 ${
               active === "modify" ? "btn-primary" : "btn-outline-light"
             }`}
             onClick={() => onNavigate("modify")}
           >
             Modify lists
+          </button>
+
+          <button
+            className={`btn ${
+              active === "items" ? "btn-primary" : "btn-outline-light"
+            }`}
+            onClick={() => onNavigate("items")}
+          >
+            Manage items
           </button>
         </div>
       </div>
