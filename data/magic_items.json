@@ -1,0 +1,33 @@
+{
+  "Wondrous Item": [
+    {
+      "name": "Bag of Holding",
+      "rarity": "Uncommon",
+      "requiresAttunement": false,
+      "value": 400,
+      "description": "This bag can hold far more than its outside dimensions suggest.",
+      "weight": 0.5
+    },
+    {
+      "name": "Cloak of Protection",
+      "rarity": "Uncommon",
+      "requiresAttunement": true,
+      "value": 500,
+      "description": "Grants +1 to AC and saving throws.",
+      "weight": 0.5
+    }
+  ],
+  "Potion": [
+    {
+      "name": "Potion of Healing",
+      "rarity": "Common",
+      "requiresAttunement": false,
+      "value": 50,
+      "description": "Heals 2d4 + 2 hit points.",
+      "weight": 0.5
+    }
+  ],
+  "Ring": [],
+  "Weapon (any)": [],
+  "Armor (light)": []
+}
