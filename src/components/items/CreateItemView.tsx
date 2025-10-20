@@ -1,27 +1,37 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ConfirmationModal from "../ConfirmationModal";
+import type { ItemData } from "../../types";
+import {
+  loadItemData,
+  addOrReplaceItem,
+  addCategory,
+  downloadItemDataFile,
+} from "../../data/ItemDataHandler";
 
 interface CreateItemViewProps {
   onBack: () => void;
 }
 
-interface ItemData {
-  name: string;
-  description: string;
-  rarity: string;
-  type: string;
-  requiresAttunement: boolean;
-  value?: number;
-}
+const STORAGE_KEY = "magicItemsData";
+
+const saveToStorage = (data: Record<string, ItemData[]>) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (err) {
+    console.error("Failed to save item data:", err);
+  }
+};
 
 export default function CreateItemView({ onBack }: CreateItemViewProps) {
+  const [itemData, setItemData] = useState<Record<string, ItemData[]>>({});
   const [item, setItem] = useState<ItemData>({
     name: "",
     description: "",
     rarity: "Common",
-    type: "Wondrous Item",
+    type: "",
     requiresAttunement: false,
     value: 0,
+    weight: 0,
   });
 
   const [message, setMessage] = useState("");
@@ -29,27 +39,45 @@ export default function CreateItemView({ onBack }: CreateItemViewProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [preparedItem, setPreparedItem] = useState<ItemData | null>(null);
 
-  const rarities = ["Common", "Uncommon", "Rare", "Very Rare", "Legendary"];
-  const itemTypes = [
-    "Wondrous Item",
-    "Potion",
-    "Ring",
-    "Rod",
-    "Scroll",
-    "Staff",
-    "Wand",
-    "Weapon (any)",
-    "Weapon (any sword)",
-    "Armor (light)",
-    "Armor (medium)",
-    "Armor (heavy)",
-    "Shield",
-    "Ammunition",
-    "Tool",
-    "Instrument",
-    "Other",
-  ];
+  // Category modal state
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategory, setNewCategory] = useState("");
+  const [categoryError, setCategoryError] = useState("");
 
+  const rarities = ["Common", "Uncommon", "Rare", "Very Rare", "Legendary", "Varies"];
+
+  // Load categories from localStorage (preferred) or JSON (fallback)
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && typeof parsed === "object") {
+            setItemData(parsed);
+            const first = Object.keys(parsed)[0];
+            if (first) setItem((prev) => ({ ...prev, type: first }));
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to read items from localStorage, falling back to file:", err);
+      }
+
+      try {
+        const data = await loadItemData();
+        setItemData(data);
+        const first = Object.keys(data)[0];
+        if (first) setItem((prev) => ({ ...prev, type: first }));
+      } catch (err) {
+        console.error("Failed to load item data:", err);
+        setItemData({});
+      }
+    }
+    loadData();
+  }, []);
+
+  // --- Item creation ---
   const handleCreate = () => {
     setError("");
     setMessage("");
@@ -60,10 +88,16 @@ export default function CreateItemView({ onBack }: CreateItemViewProps) {
       return;
     }
 
-    if (!/^[a-zA-Z0-9_\- ]+$/.test(trimmedName)) {
+    // Allow letters, numbers, spaces, underscores, hyphens, and parentheses
+    if (!/^[a-zA-Z0-9_\-\s()]+$/.test(trimmedName)) {
       setError(
-        "Item name contains invalid characters. Use letters, numbers, spaces, underscores or hyphens."
+        "Item name contains invalid characters. Use letters, numbers, spaces, underscores, hyphens, or parentheses."
       );
+      return;
+    }
+
+    if (!item.type) {
+      setError("Please select or create an item category.");
       return;
     }
 
@@ -74,46 +108,111 @@ export default function CreateItemView({ onBack }: CreateItemViewProps) {
   const finalizeCreate = (action: "yes" | "no" | "cancel") => {
     if (!preparedItem) return;
 
-    const trimmedName = preparedItem.name.trim();
-
     if (action === "cancel") {
       setShowConfirm(false);
       setPreparedItem(null);
       return;
     }
 
-    if (action === "yes") {
-      const blob = new Blob([JSON.stringify(preparedItem, null, 2)], {
-        type: "application/json",
-      });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `${trimmedName.replace(/\s+/g, "_")}.json`;
-      link.click();
-    }
+    const updated = addOrReplaceItem(itemData, preparedItem);
+    setItemData(updated);
+    saveToStorage(updated);
 
-    // Action === "no" or "yes" continues creation
-    setMessage(`Item "${trimmedName}" created successfully.`);
+    if (action === "yes") downloadItemDataFile(updated);
+
+    setMessage(`Item "${preparedItem.name}" created successfully.`);
+    resetForm(preparedItem.type);
+  };
+
+  const resetForm = (type: string) => {
     setItem({
       name: "",
       description: "",
       rarity: "Common",
-      type: "Wondrous Item",
+      type: type || "",
       requiresAttunement: false,
       value: 0,
+      weight: 0,
     });
-
     setShowConfirm(false);
     setPreparedItem(null);
-    setTimeout(() => setMessage(""), 6000);
+    setTimeout(() => setMessage(""), 5000);
+  };
+
+  // --- Add category handlers ---
+  const openAddCategory = () => {
+    setNewCategory("");
+    setCategoryError("");
+    setShowAddCategory(true);
+  };
+
+  const isValidCategoryName = (name: string): boolean => {
+    // Allow letters, numbers, spaces, underscores, hyphens
+    // Disallow characters not allowed in filenames: \/ : * ? " < > |
+    return /^[a-zA-Z0-9_\-\s]+$/.test(name) && !/[\\/:*?"<>|]/.test(name);
+  };
+
+  const validateCategory = (trimmed: string): string | null => {
+    if (!trimmed) return "Category name cannot be empty.";
+    if (!isValidCategoryName(trimmed))
+      return "Invalid characters in category name. Avoid special symbols like / \\ : * ? \" < > |";
+    if (itemData[trimmed]) return "That category already exists.";
+    return null;
+  };
+
+  const addCategoryAndDownload = () => {
+    const trimmed = newCategory.trim();
+    const validationError = validateCategory(trimmed);
+    if (validationError) {
+      setCategoryError(validationError);
+      return;
+    }
+
+    const updated = addCategory(itemData, trimmed);
+    setItemData(updated);
+    saveToStorage(updated);
+    setItem((prev) => ({ ...prev, type: trimmed }));
+
+    downloadItemDataFile(updated);
+
+    setShowAddCategory(false);
+    setNewCategory("");
+    setCategoryError("");
+    setMessage(`Category "${trimmed}" added and JSON downloaded.`);
+    setTimeout(() => setMessage(""), 5000);
+  };
+
+  const addCategoryJustAdd = () => {
+    const trimmed = newCategory.trim();
+    const validationError = validateCategory(trimmed);
+    if (validationError) {
+      setCategoryError(validationError);
+      return;
+    }
+
+    const updated = addCategory(itemData, trimmed);
+    setItemData(updated);
+    saveToStorage(updated);
+    setItem((prev) => ({ ...prev, type: trimmed }));
+
+    setShowAddCategory(false);
+    setNewCategory("");
+    setCategoryError("");
+    setMessage(`Category "${trimmed}" added.`);
+    setTimeout(() => setMessage(""), 5000);
+  };
+
+  const cancelAddCategory = () => {
+    setShowAddCategory(false);
+    setNewCategory("");
+    setCategoryError("");
   };
 
   return (
     <div>
       <h4>Create New Item</h4>
       <p className="text-muted mb-3">
-        Define the details of a new loot item. Once saved, you can later link it
-        to treasure lists.
+        Define the details of a new loot item. Once saved, it will be added to your items data file.
       </p>
 
       {/* Item Name */}
@@ -125,21 +224,23 @@ export default function CreateItemView({ onBack }: CreateItemViewProps) {
           value={item.name}
           onChange={(e) => setItem({ ...item, name: e.target.value })}
         />
-        <small className="text-danger">
-          Allowed characters: letters, numbers, spaces, underscores (_), and
-          hyphens (-)
-        </small>
       </div>
 
       {/* Item Type */}
       <div className="mb-3">
-        <label className="form-label fw-bold">Item Type</label>
+        <div className="d-flex justify-content-between align-items-center">
+          <label className="form-label fw-bold mb-0">Item Type</label>
+          <button className="btn btn-sm btn-outline-primary" onClick={openAddCategory}>
+            + Add New Category
+          </button>
+        </div>
         <select
-          className="form-select"
+          className="form-select mt-1"
           value={item.type}
           onChange={(e) => setItem({ ...item, type: e.target.value })}
         >
-          {itemTypes.map((type) => (
+          <option value="">Select category...</option>
+          {Object.keys(itemData).map((type) => (
             <option key={type} value={type}>
               {type}
             </option>
@@ -147,18 +248,16 @@ export default function CreateItemView({ onBack }: CreateItemViewProps) {
         </select>
       </div>
 
-      {/* Requires Attunement */}
+      {/* Attunement */}
       <div className="form-check mb-3">
         <input
           className="form-check-input"
           type="checkbox"
-          id="attunementCheck"
+          id="attune"
           checked={item.requiresAttunement}
-          onChange={(e) =>
-            setItem({ ...item, requiresAttunement: e.target.checked })
-          }
+          onChange={(e) => setItem({ ...item, requiresAttunement: e.target.checked })}
         />
-        <label className="form-check-label" htmlFor="attunementCheck">
+        <label htmlFor="attune" className="form-check-label">
           Requires Attunement
         </label>
       </div>
@@ -171,7 +270,7 @@ export default function CreateItemView({ onBack }: CreateItemViewProps) {
           rows={3}
           value={item.description}
           onChange={(e) => setItem({ ...item, description: e.target.value })}
-        ></textarea>
+        />
       </div>
 
       {/* Rarity */}
@@ -195,10 +294,26 @@ export default function CreateItemView({ onBack }: CreateItemViewProps) {
         <label className="form-label fw-bold">Value (gold)</label>
         <input
           type="number"
+          min={0}
           className="form-control"
-          value={item.value || ""}
+          value={item.value ?? ""}
           onChange={(e) =>
-            setItem({ ...item, value: parseInt(e.target.value, 10) || 0 })
+            setItem({ ...item, value: Math.max(0, parseInt(e.target.value, 10) || 0) })
+          }
+        />
+      </div>
+
+      {/* Weight */}
+      <div className="mb-3">
+        <label className="form-label fw-bold">Weight (lb)</label>
+        <input
+          type="number"
+          min={0}
+          step={0.01}
+          className="form-control"
+          value={item.weight ?? ""}
+          onChange={(e) =>
+            setItem({ ...item, weight: Math.max(0, parseFloat(e.target.value) || 0) })
           }
         />
       </div>
@@ -213,20 +328,45 @@ export default function CreateItemView({ onBack }: CreateItemViewProps) {
         </button>
       </div>
 
-      {/* Messages */}
+      {/* Feedback */}
       {error && <p className="mt-3 text-danger fw-bold">{error}</p>}
       {message && <p className="mt-3 text-success fw-bold">{message}</p>}
 
-      {/* Confirmation Modal */}
+      {/* Confirmation: create item */}
       {showConfirm && preparedItem && (
         <ConfirmationModal
-          title="Download Item File?"
-          message={`Would you like to download "${preparedItem.name}" as a JSON file?`}
+          title="Download Updated File?"
+          message={`Download updated item file including "${preparedItem.name}"?`}
           onPrimary={() => finalizeCreate("yes")}
           onSecondary={() => finalizeCreate("no")}
           onCancel={() => finalizeCreate("cancel")}
           primaryLabel="Yes"
-          secondaryLabel="No, but continue"
+          secondaryLabel="No, continue"
+          cancelLabel="Cancel"
+        />
+      )}
+
+      {/* Add Category Modal */}
+      {showAddCategory && (
+        <ConfirmationModal
+          title="Add New Category"
+          message={
+            <div>
+              <label className="form-label fw-bold">Category Name</label>
+              <input
+                type="text"
+                className="form-control"
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+              />
+              {categoryError && <small className="text-danger">{categoryError}</small>}
+            </div>
+          }
+          onPrimary={addCategoryAndDownload}
+          onSecondary={addCategoryJustAdd}
+          onCancel={cancelAddCategory}
+          primaryLabel="Add & Download JSON"
+          secondaryLabel="Just Add"
           cancelLabel="Cancel"
         />
       )}

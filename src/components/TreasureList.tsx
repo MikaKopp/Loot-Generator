@@ -6,6 +6,8 @@ export interface TreasureItem {
   weight: number;
   // optional place for extended info
   description?: string;
+  // optional item linkage (e.g., an ID or item name)
+  linkedItem?: string;
 }
 
 export interface ColumnConfig {

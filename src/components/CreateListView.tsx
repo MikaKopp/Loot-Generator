@@ -21,7 +21,7 @@ export default function CreateListView({
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingKey, setPendingKey] = useState("");
 
-  const validNameRegex = /^[a-zA-Z0-9_-]+$/;
+  const validNameRegex = /^[a-zA-Z0-9_-\s]+$/;
 
   const handleCreate = () => {
     const key = listName.trim();
@@ -35,7 +35,7 @@ export default function CreateListView({
     setShowConfirm(true);
   };
 
-  const createNewData = (key: string): TreasureData => ({
+  const createNewData = (_key: string): TreasureData => ({
     die: 6,
     columns: [
       { key: "roll", label: "Roll" },

@@ -1,23 +1,27 @@
-import { useEffect, useState } from "react";
+// ModifyEditor.tsx
+import { useEffect, useRef, useState } from "react";
 import type { TreasureData, TreasureItem } from "./TreasureList";
 import ConfirmationModal from "./ConfirmationModal";
+import ItemLinkerModal from "./ItemLinkerModal";
+import { dataSets as defaultData } from "../data/DataLoader";
 
 interface ModifyEditorProps {
   dataSets: Record<string, TreasureData>;
   setDataSets: React.Dispatch<React.SetStateAction<Record<string, TreasureData>>>;
+  commitDataToStorage: (data: Record<string, TreasureData>) => void;
   initialKey?: string;
   onBack: () => void;
 }
 
+const STORAGE_KEY = "treasureDataSets";
+
 function sanitizeRollInput(val: string): string {
   return val.replace(/[^0-9\-]/g, "").replace(/-+/g, "-");
 }
-
 function sanitizeWeightInput(val: string): number {
-  const onlyNumbers = val.replace(/\D/g, "");
+  const onlyNumbers = String(val).replace(/\D/g, "");
   return parseInt(onlyNumbers, 10) || 1;
 }
-
 function parseRollRange(str: string): { min: number; max: number } | null {
   const parts = str.split("-").map((p) => parseInt(p.trim(), 10));
   if (parts.length === 1 && !isNaN(parts[0])) return { min: parts[0], max: parts[0] };
@@ -26,7 +30,6 @@ function parseRollRange(str: string): { min: number; max: number } | null {
   }
   return null;
 }
-
 function weightsToRolls(weights: number[]): string[] {
   const rolls: string[] = [];
   let start = 1;
@@ -62,24 +65,58 @@ function MoveButton({
 export default function ModifyEditor({
   dataSets,
   setDataSets,
+  commitDataToStorage,
   initialKey,
   onBack,
 }: ModifyEditorProps) {
+  const initialRef = useRef<Record<string, TreasureData>>(dataSets);
+  useEffect(() => {
+    initialRef.current = dataSets;
+  }, []); // only once
+
   const datasetKeys = Object.keys(dataSets);
   const [selectedSet, setSelectedSet] = useState<string>(initialKey ?? datasetKeys[0] ?? "");
   const [newRow, setNewRow] = useState<TreasureItem>({ roll: "", name: "", weight: 1 });
   const [unsavedChanges, setUnsavedChanges] = useState(false);
+
   const [showConfirmBack, setShowConfirmBack] = useState(false);
   const [showConfirmSave, setShowConfirmSave] = useState(false);
   const [preparedSave, setPreparedSave] = useState<TreasureData | null>(null);
   const [saveMessage, setSaveMessage] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [editType, setEditType] = useState<"roll" | "weight">("roll");
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  //New state for linking items
+  const [showItemLinker, setShowItemLinker] = useState(false);
+  const [activeEntryIndex, setActiveEntryIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === "object" && Object.keys(dataSets).length === 0) {
+          setDataSets(parsed);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to parse stored treasure datasets", err);
+    }
+  }, []); // eslint-disable-line
+
+  useEffect(() => {
+    const keys = Object.keys(dataSets);
+    if (keys.length && !keys.includes(selectedSet)) {
+      setSelectedSet(keys[0]);
+      setUnsavedChanges(false);
+      setSaveMessage("");
+    }
+  }, [dataSets, selectedSet]);
 
   const currentData = dataSets[selectedSet];
   const totalWeight = currentData?.items.reduce((sum, i) => sum + (i.weight || 0), 0) || 0;
 
-  // keep die synced
   useEffect(() => {
     if (!selectedSet || !currentData) return;
     if (currentData.die !== totalWeight) {
@@ -96,7 +133,6 @@ export default function ModifyEditor({
     return items.map((i, idx) => ({ ...i, roll: newRolls[idx] }));
   };
 
-  // --- Add new row ---
   const handleAddRow = () => {
     if (!selectedSet || !currentData) return;
     if (!newRow.name || newRow.weight <= 0) return;
@@ -113,7 +149,6 @@ export default function ModifyEditor({
   const handleNewRowRollChange = (val: string) => {
     const clean = sanitizeRollInput(val);
     setNewRow((prev) => ({ ...prev, roll: clean }));
-
     const parsed = parseRollRange(clean);
     if (parsed) {
       const newWeight = parsed.max - parsed.min + 1;
@@ -133,38 +168,33 @@ export default function ModifyEditor({
     });
   };
 
-  // --- Editing existing rows ---
   const handleEditRow = (idx: number, key: keyof TreasureItem, value: string | number, onBlur?: boolean) => {
     if (!currentData) return;
-    let updatedItems = [...currentData.items];
+    const updatedItems = [...currentData.items];
 
     if (key === "weight") {
       updatedItems[idx].weight = value as number;
-      updatedItems = reflowRolls(updatedItems);
+      const reflowed = reflowRolls(updatedItems);
+      setDataSets((prev) => ({ ...prev, [selectedSet]: { ...currentData, items: reflowed } }));
     } else if (key === "roll") {
       updatedItems[idx].roll = value as string;
       if (onBlur) {
         const parsed = parseRollRange(value as string);
         if (parsed) {
-          const newWeight = parsed.max - parsed.min + 1;
-          updatedItems[idx].weight = newWeight;
-          const startAfter = parsed.max + 1;
+          updatedItems[idx].weight = parsed.max - parsed.min + 1;
           for (let i = idx + 1; i < updatedItems.length; i++) {
-            const prevMax = parseRollRange(updatedItems[i - 1].roll)?.max ?? startAfter;
-            const newMin = prevMax + 1;
-            const newMax = newMin + updatedItems[i].weight - 1;
+            const prevMax = parseRollRange(updatedItems[i - 1].roll)?.max ?? parsed.max;
+            const newMin = (prevMax ?? parsed.max) + 1;
+            const newMax = newMin + (updatedItems[i].weight || 1) - 1;
             updatedItems[i].roll = `${newMin}-${newMax}`;
           }
         }
       }
+      setDataSets((prev) => ({ ...prev, [selectedSet]: { ...currentData, items: updatedItems } }));
     } else {
       updatedItems[idx][key] = value as any;
+      setDataSets((prev) => ({ ...prev, [selectedSet]: { ...currentData, items: updatedItems } }));
     }
-
-    setDataSets((prev) => ({
-      ...prev,
-      [selectedSet]: { ...currentData, items: updatedItems },
-    }));
     setUnsavedChanges(true);
   };
 
@@ -175,10 +205,7 @@ export default function ModifyEditor({
     const updated = [...currentData.items];
     [updated[idx], updated[newIndex]] = [updated[newIndex], updated[idx]];
     const reflowed = reflowRolls(updated);
-    setDataSets((prev) => ({
-      ...prev,
-      [selectedSet]: { ...currentData, items: reflowed },
-    }));
+    setDataSets((prev) => ({ ...prev, [selectedSet]: { ...currentData, items: reflowed } }));
     setUnsavedChanges(true);
   };
 
@@ -186,45 +213,81 @@ export default function ModifyEditor({
     if (!currentData) return;
     const updated = currentData.items.filter((_, i) => i !== idx);
     const reflowed = reflowRolls(updated);
-    setDataSets((prev) => ({
-      ...prev,
-      [selectedSet]: { ...currentData, items: reflowed },
-    }));
+    setDataSets((prev) => ({ ...prev, [selectedSet]: { ...currentData, items: reflowed } }));
     setUnsavedChanges(true);
   };
 
-  // --- Save confirmation ---
+  //Linking logic
+  const openItemLinker = (index: number) => {
+    setActiveEntryIndex(index);
+    setShowItemLinker(true);
+  };
+  const handleItemSelect = (itemName: string | null) => {
+    if (activeEntryIndex === null || !currentData) return;
+    const updated = [...currentData.items];
+    if (itemName) updated[activeEntryIndex].linkedItem = itemName;
+    else delete updated[activeEntryIndex].linkedItem;
+    setDataSets((prev) => ({ ...prev, [selectedSet]: { ...currentData, items: updated } }));
+    setShowItemLinker(false);
+    setActiveEntryIndex(null);
+    setUnsavedChanges(true);
+  };
+
   const handleSave = () => {
     if (!unsavedChanges) {
       setSaveMessage("No changes detected.");
-      setTimeout(() => setSaveMessage(""), 4000);
+      setTimeout(() => setSaveMessage(""), 3000);
       return;
     }
     if (!selectedSet || !currentData) return;
-
     setPreparedSave(currentData);
     setShowConfirmSave(true);
   };
 
-  const finalizeSave = (shouldDownload: boolean) => {
-    if (!preparedSave || !selectedSet) return;
-
-    if (shouldDownload) {
+  const finalizeSave = (action: "download" | "save" | "cancel") => {
+    setShowConfirmSave(false);
+    if (!preparedSave) {
+      setPreparedSave(null);
+      return;
+    }
+    if (action === "cancel") {
+      setPreparedSave(null);
+      return;
+    }
+    try {
+      commitDataToStorage(dataSets);
+    } catch (err) {
+      console.warn("Failed to commit data via commitDataToStorage:", err);
+    }
+    if (action === "download") {
       const blob = new Blob([JSON.stringify(preparedSave, null, 2)], { type: "application/json" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = `${selectedSet}.json`;
       link.click();
     }
-
-    setSaveMessage("Changes have been saved. (Place JSON in /data for persistence)");
+    setSaveMessage("Changes saved.");
     setUnsavedChanges(false);
-    setShowConfirmSave(false);
     setPreparedSave(null);
-    setTimeout(() => setSaveMessage(""), 12000);
+    setTimeout(() => setSaveMessage(""), 8000);
   };
 
-  // --- Back confirmation ---
+  const handleResetToDefault = () => setShowResetConfirm(true);
+  const confirmReset = () => {
+    if (!confirm("Are you sure you want to reset all lists to their default JSON data?")) return;
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (err) {
+      console.error("Failed to clear localStorage:", err);
+    }
+    setDataSets(defaultData);
+    commitDataToStorage(defaultData);
+    setUnsavedChanges(false);
+    setShowResetConfirm(false);
+    setSaveMessage("All lists reset to defaults from JSON files.");
+    setTimeout(() => setSaveMessage(""), 8000);
+  };
+
   const handleBack = () => (unsavedChanges ? setShowConfirmBack(true) : onBack());
   const confirmBackYes = () => {
     setShowConfirmBack(false);
@@ -237,11 +300,25 @@ export default function ModifyEditor({
     <div className="card mt-4">
       <div className="card-header d-flex justify-content-between align-items-center">
         <h3>Modify {selectedSet || "list"}</h3>
-        <button className="btn btn-outline-light btn-sm" onClick={handleBack}>
-          Back
-        </button>
+        <div>
+          <button className="btn btn-outline-light btn-sm me-2" onClick={handleBack}>
+            Back
+          </button>
+        </div>
       </div>
+
       <div className="card-body">
+        {/* Info + reset */}
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <p className="text-muted mb-0">Browse, edit, or delete entries.</p>
+          <button
+            className="btn btn-link text-danger text-decoration-none p-0"
+            onClick={handleResetToDefault}
+          >
+            Reset to default
+          </button>
+        </div>
+
         {/* Dataset selector */}
         <div className="mb-3">
           <label className="form-label fw-bold">Choose dataset:</label>
@@ -254,7 +331,7 @@ export default function ModifyEditor({
               setUnsavedChanges(false);
             }}
           >
-            {datasetKeys.map((k) => (
+            {Object.keys(dataSets).map((k) => (
               <option key={k} value={k}>
                 {k}
               </option>
@@ -285,6 +362,7 @@ export default function ModifyEditor({
           <div className="col">
             <input
               type="number"
+              min={1}
               className="form-control"
               placeholder="Weight"
               value={newRow.weight}
@@ -317,7 +395,7 @@ export default function ModifyEditor({
         </div>
 
         {/* Table */}
-        {currentData && (
+        {currentData ? (
           <table className="table table-dark table-striped">
             <thead>
               <tr>
@@ -333,8 +411,13 @@ export default function ModifyEditor({
                 <tr key={idx}>
                   <td className="text-center">
                     <MoveButton direction="up" disabled={idx === 0} onClick={() => moveRow(idx, -1)} />
-                    <MoveButton direction="down" disabled={idx === currentData.items.length - 1} onClick={() => moveRow(idx, 1)} />
+                    <MoveButton
+                      direction="down"
+                      disabled={idx === currentData.items.length - 1}
+                      onClick={() => moveRow(idx, 1)}
+                    />
                   </td>
+
                   {currentData.columns.map((col) => (
                     <td key={String(col.key)}>
                       {editMode && (col.key === "roll" || col.key === "weight") ? (
@@ -343,17 +426,32 @@ export default function ModifyEditor({
                           className="form-control form-control-sm"
                           value={String(item[col.key])}
                           onChange={(e) =>
-                            handleEditRow(idx, col.key, col.key === "weight" ? sanitizeWeightInput(e.target.value) : sanitizeRollInput(e.target.value))
+                            handleEditRow(
+                              idx,
+                              col.key,
+                              col.key === "weight"
+                                ? sanitizeWeightInput(e.target.value)
+                                : sanitizeRollInput(e.target.value)
+                            )
                           }
                           onBlur={(e) => col.key === "roll" && handleEditRow(idx, "roll", e.target.value, true)}
                           disabled={col.key === "weight" ? editType === "roll" : editType === "weight"}
                         />
                       ) : (
-                        item[col.key]
+                        <>
+                          {item[col.key]}
+                          {col.key === "name" && item.linkedItem && (
+                            <small className="text-success ms-2">🧩 {item.linkedItem}</small>
+                          )}
+                        </>
                       )}
                     </td>
                   ))}
-                  <td>
+
+                  <td className="text-nowrap">
+                    <button className="btn btn-sm btn-success me-1" onClick={() => openItemLinker(idx)}>
+                      🔗
+                    </button>
                     <button className="btn btn-sm btn-danger" onClick={() => handleDeleteRow(idx)}>
                       ❌
                     </button>
@@ -361,6 +459,7 @@ export default function ModifyEditor({
                 </tr>
               ))}
             </tbody>
+
             <tfoot>
               <tr>
                 <td colSpan={currentData.columns.length + 2}>
@@ -373,21 +472,24 @@ export default function ModifyEditor({
               </tr>
             </tfoot>
           </table>
+        ) : (
+          <p>No dataset selected.</p>
         )}
 
         {/* Bottom buttons */}
         <div className="d-flex justify-content-between mt-3">
-          <button className="btn btn-success" onClick={handleSave}>
-            Save
-          </button>
-          <button className="btn btn-secondary" onClick={handleBack}>
-            Back
-          </button>
+          <div>
+            <button className="btn btn-success me-2" onClick={handleSave}>
+              Save
+            </button>
+            <button className="btn btn-secondary" onClick={handleBack}>
+              Back
+            </button>
+          </div>
+          <div>{saveMessage && <span className="text-success fw-bold">{saveMessage}</span>}</div>
         </div>
 
-        {saveMessage && <p className="mt-2 text-success fw-bold">{saveMessage}</p>}
-
-        {/* Confirmation Modals */}
+        {/* Modals */}
         {showConfirmBack && (
           <ConfirmationModal
             title="Unsaved Changes"
@@ -399,18 +501,38 @@ export default function ModifyEditor({
             cancelLabel="Stay here"
           />
         )}
-
         {showConfirmSave && preparedSave && (
           <ConfirmationModal
             title="Save Changes?"
-            message="Do you want to download the updated JSON for this list?"
+            message="Do you want to download the updated JSON for this list, just save locally, or cancel?"
             variant="info"
-            onPrimary={() => finalizeSave(true)}
-            onCancel={() => finalizeSave(false)}
+            onPrimary={() => finalizeSave("download")}
+            onSecondary={() => finalizeSave("save")}
+            onCancel={() => finalizeSave("cancel")}
             primaryLabel="Yes, download"
-            cancelLabel="No"
+            secondaryLabel="Just save"
+            cancelLabel="Cancel"
           />
         )}
+        {showResetConfirm && (
+          <ConfirmationModal
+            title="Reset to Default?"
+            message="This will discard local edits and restore original data."
+            variant="danger"
+            onPrimary={confirmReset}
+            onCancel={() => setShowResetConfirm(false)}
+            primaryLabel="Yes, reset"
+            cancelLabel="Cancel"
+          />
+        )}
+
+        {/*Item linker modal */}
+        <ItemLinkerModal
+        show={showItemLinker}
+        onClose={() => setShowItemLinker(false)}
+        onSelect={handleItemSelect}
+        />
+
       </div>
     </div>
   );

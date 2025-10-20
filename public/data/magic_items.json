@@ -1,0 +1,89 @@
+{
+  "Wondrous Item": [
+    {
+      "name": "Bag of Holding",
+      "rarity": "Uncommon",
+      "requiresAttunement": false,
+      "value": 400,
+      "description": "This bag can hold far more than its outside dimensions suggest.",
+      "weight": 0.5
+    },
+    {
+      "name": "Cloak of Protection",
+      "rarity": "Uncommon",
+      "requiresAttunement": true,
+      "value": 500,
+      "description": "Grants +1 to AC and saving throws.",
+      "weight": 0.5
+    },
+    {
+      "name": "Driftglobe",
+      "description": "This small sphere of thick glass weighs 1 pound. If you are within 60 feet of it, you can speak its command word and cause it to emanate the Light or Daylight spell. Once used, the Daylight effect can't be used again until the next dawn.\n\nYou can speak another command word as an action to make the illuminated globe rise into the air and float no more than 5 feet off the ground. The globe hovers in this way until you or another creature grasps it. If you move more than 60 feet from the hovering globe, it follows you until it is within 60 feet of you. It takes the shortest route to do so. If prevented from moving, the globe sinks gently to the ground and becomes inactive, and its light winks out.",
+      "rarity": "Uncommon",
+      "type": "Wondrous Item",
+      "requiresAttunement": false,
+      "value": 500,
+      "weight": 0
+    }
+  ],
+  "Potion": [
+    {
+      "name": "Potion of Healing",
+      "rarity": "Common",
+      "requiresAttunement": false,
+      "value": 50,
+      "description": "Heals 2d4 + 2 hit points.",
+      "weight": 0.5
+    },
+    {
+      "name": "Potion of climbing",
+      "description": "",
+      "rarity": "Common",
+      "type": "Potion",
+      "requiresAttunement": false,
+      "value": 0,
+      "weight": 0
+    },
+    {
+      "name": "Potion of greater healing",
+      "description": "",
+      "rarity": "Common",
+      "type": "Potion",
+      "requiresAttunement": false,
+      "value": 0,
+      "weight": 0
+    }
+  ],
+  "Ring": [],
+  "Weapon (any)": [],
+  "Armor (light)": [],
+  "Scroll": [
+    {
+      "name": "Spell scroll (cantrip)",
+      "description": "",
+      "rarity": "Varies",
+      "type": "Scroll",
+      "requiresAttunement": false,
+      "value": 0,
+      "weight": 0
+    },
+    {
+      "name": "Spell scroll (1st level)",
+      "description": "",
+      "rarity": "Common",
+      "type": "Scroll",
+      "requiresAttunement": false,
+      "value": 0,
+      "weight": 0
+    },
+    {
+      "name": "Spell scroll (2nd level)",
+      "description": "",
+      "rarity": "Common",
+      "type": "Scroll",
+      "requiresAttunement": false,
+      "value": 0,
+      "weight": 0
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+// components/ModifyLists.tsx
 import { useState } from "react";
 import type { TreasureData } from "./TreasureList";
 import CreateListView from "./CreateListView";
@@ -8,11 +9,12 @@ interface ModifyListsProps {
   setDataSets: React.Dispatch<
     React.SetStateAction<Record<string, TreasureData>>
   >;
+  commitDataToStorage: (data: Record<string, TreasureData>) => void;
 }
 
 type ModifyView = "menu" | "create" | "edit";
 
-function ModifyLists({ dataSets, setDataSets }: ModifyListsProps) {
+function ModifyLists({ dataSets, setDataSets, commitDataToStorage }: ModifyListsProps) {
   const [view, setView] = useState<ModifyView>("menu");
   const [initialKey, setInitialKey] = useState<string | undefined>(undefined);
 
@@ -35,6 +37,7 @@ function ModifyLists({ dataSets, setDataSets }: ModifyListsProps) {
       <ModifyEditor
         dataSets={dataSets}
         setDataSets={setDataSets}
+        commitDataToStorage={commitDataToStorage} // forward the function
         initialKey={initialKey}
         onBack={() => setView("menu")}
       />

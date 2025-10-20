@@ -1,10 +1,8 @@
-import React from "react";
-
 type Variant = "success" | "warning" | "danger" | "info";
 
 interface ConfirmationModalProps {
   title: string;
-  message: string;
+  message: string | React.ReactNode;
   onPrimary: () => void;
   onSecondary?: () => void;
   onCancel: () => void;

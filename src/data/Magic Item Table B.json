@@ -1,0 +1,69 @@
+{
+  "die": 64,
+  "columns": [
+    {
+      "key": "roll",
+      "label": "Roll"
+    },
+    {
+      "key": "name",
+      "label": "Item"
+    },
+    {
+      "key": "weight",
+      "label": "Weight"
+    }
+  ],
+  "items": [
+    {
+      "roll": "1-15",
+      "name": "Potion of greater healing",
+      "weight": 15
+    },
+    {
+      "roll": "16-22",
+      "name": "Potion of fire breath",
+      "weight": 7
+    },
+    {
+      "roll": "23-29",
+      "name": "Potion of resistance",
+      "weight": 7
+    },
+    {
+      "roll": "30-34",
+      "name": "Ammunition, +1",
+      "weight": 5
+    },
+    {
+      "roll": "35-39",
+      "name": "Potion of animal friendship",
+      "weight": 5
+    },
+    {
+      "roll": "40-44",
+      "name": "Potion of hill giant strength",
+      "weight": 5
+    },
+    {
+      "roll": "45-49",
+      "name": "Potion of growth",
+      "weight": 5
+    },
+    {
+      "roll": "50-54",
+      "name": "Potion of water breathing",
+      "weight": 5
+    },
+    {
+      "roll": "55-59",
+      "name": "Spell scroll (2nd level)",
+      "weight": 5
+    },
+    {
+      "roll": "60-64",
+      "name": "Spell scroll (3rd level)",
+      "weight": 5
+    }
+  ]
+}
