@@ -3,6 +3,7 @@ import type { ItemData } from "../../types";
 import {
   loadItemData,
   downloadItemDataFile,
+  useItemData,
 } from "../../data/ItemDataHandler";
 import ConfirmationModal from "../ConfirmationModal";
 
@@ -22,8 +23,19 @@ export default function ManageExistingItems({ onBack }: ManageExistingItemsProps
   // Modal state
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<string | null>(null);
+  
+  const items = useItemData();
 
-  // --- Load from localStorage or JSON file ---
+// Keep the displayed state in sync with the global store
+  useEffect(() => {
+    if (Object.keys(items).length > 0) {
+      setItemsByCategory(structuredClone(items));
+      setOriginalData(structuredClone(items));
+    }
+  }, [items]);
+
+/* OLDER VERSION, I SHOULD PROB DELETE THIS   
+// --- Load from localStorage or JSON file ---
   useEffect(() => {
     async function loadData() {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -46,7 +58,7 @@ export default function ManageExistingItems({ onBack }: ManageExistingItemsProps
     }
 
     loadData();
-  }, []);
+  }, []); */
 
   const toggleEdit = (category: string) => {
     setEditMode((prev) => ({ ...prev, [category]: !prev[category] }));

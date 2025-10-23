@@ -38,13 +38,33 @@ export default function NavBar({ active, onNavigate }: NavBarProps) {
           </button>
 
           <button
-            className={`btn ${
+            className={`btn me-2 ${
               active === "items" ? "btn-primary" : "btn-outline-light"
             }`}
             onClick={() => onNavigate("items")}
           >
             Manage items
           </button>
+          <div className="btn-group">
+            <button
+              type="button"
+              className="btn btn-outline-light dropdown-toggle"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              More
+            </button>
+            <ul className="dropdown-menu dropdown-menu-end">
+              <li>
+                <button
+                  className="dropdown-item"
+                  onClick={() => onNavigate("settings")}
+                >
+                  Import/Export
+                </button>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </nav>

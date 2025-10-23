@@ -145,6 +145,34 @@ export function downloadItemDataFile(data: ItemDataMap, filename = "magic_items.
 }
 
 /**
+ * Saves all item data to localStorage.
+ */
+export function saveItemsToLocalStorage(data: Record<string, ItemData[]>) {
+  try {
+    localStorage.setItem("magicItemData", JSON.stringify(data));
+    console.log("✅ Item data saved to localStorage");
+  } catch (err) {
+    console.warn("Failed to save item data to localStorage:", err);
+  }
+}
+
+/**
+ * Loads all item data from localStorage (if present).
+ */
+export function loadItemsFromLocalStorage(): Record<string, ItemData[]> | null {
+  try {
+    const stored = localStorage.getItem("magicItemData");
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    console.log("✅ Loaded item data from localStorage");
+    return ensureAllCategories(parsed);
+  } catch (err) {
+    console.warn("Failed to load item data from localStorage:", err);
+    return null;
+  }
+}
+
+/**
  * Returns the current in-memory item data.
  */
 export function getAllData(): ItemDataMap {
@@ -178,4 +206,5 @@ export function useItemData(): ItemDataMap {
   }, []);
 
   return data;
+  
 }
