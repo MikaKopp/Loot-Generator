@@ -1,4 +1,4 @@
-Check out the page: https://github.com/MikaKopp/Loot-Generator.git
+Check out the page: https://mikakopp.github.io/Loot-Generator/
 
 
 # React + TypeScript + Vite
